@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Musfira Store</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+<!-- Favicon -->
+<link rel="icon" type="image/png" href="C:\Users\Asante Godfred\OneDrive\Desktop\my pics\Screenshot 2025-12-26 181443.png">
+<style>
+body{
+  font-family:Poppins,sans-serif;
+  margin:0;
+  background:radial-gradient(circle at top,#7c3aed,#1a1b1e 60%);
+  color:white;
+}
+header{text-align:center;padding:30px}
+nav{position:fixed;top:10px;right:10px}
+nav button{
+  padding:10px 14px;margin-left:6px;
+  border:none;border-radius:10px;
+  background:#22c55e;color:white;
+  font-weight:600;cursor:pointer;
+}
+section{display:none;padding:20px;max-width:1100px;margin:auto}
+.active{display:block}
+
+.products{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:20px;
+}
+.product{
+  background:rgba(255,255,255,.08);
+  border-radius:16px;
+  padding:15px;
+}
+.product img{
+  width:100%;
+  height:180px;
+  object-fit:cover;
+  border-radius:12px;
+}
+.price{color:#d8b4fe;font-weight:700}
+button.main{
+  width:100%;
+  margin-top:10px;
+  padding:12px;
+  border:none;border-radius:12px;
+  background:linear-gradient(to right,#3b82f6,#9333ea);
+  color:white;font-weight:600;
+}
+.cart-item,.invoice-item{
+  background:rgba(255,255,255,.08);
+  padding:12px;border-radius:12px;margin-bottom:10px;
+}
+input{
+  width:100%;
+  padding:10px;margin:6px 0;
+  border-radius:8px;border:none;
+}
+.admin-box{
+  max-width:420px;
+  background:rgba(255,255,255,.08);
+  padding:15px;border-radius:12px;
+}
+footer{text-align:center;padding:20px;font-size:13px;opacity:.7}
+.small-btn{
+  padding:6px 10px;
+  margin-right:5px;
+  border:none;border-radius:8px;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<nav>
+  <button onclick="show('shop')">Shop</button>
+  <button onclick="show('cart')">Cart</button>
+  <button onclick="adminLogin()">Admin</button>
+</nav>
+
+<header>
+  <h1>Musfira Store</h1>
+  <p>Order fast via WhatsApp</p>
+</header>
+
+<!-- SHOP -->
+<section id="shop" class="active">
+  <div class="products" id="productList"></div>
+</section>
+
+<!-- CART -->
+<section id="cart">
+  <h2>Your Cart</h2>
+  <div id="cartItems"></div>
+  <h3 id="cartTotal"></h3>
+
+  <button class="main" onclick="checkout()">Checkout</button>
+  <button class="main" style="background:crimson" onclick="clearCart()">Clear Cart</button>
+  <button class="main" style="background:#22c55e" onclick="show('invoice')">View Invoice</button>
+</section>
+
+<!-- INVOICE -->
+<section id="invoice">
+  <h2>Invoice</h2>
+  <p id="date"></p>
+  <div id="invoiceItems"></div>
+  <h3 id="invoiceTotal"></h3>
+  <button class="main" onclick="window.print()">Print / Save</button>
+</section>
+
+<!-- ADMIN -->
+<section id="admin">
+  <h2>Admin Panel</h2>
+  <div class="admin-box">
+    <input id="pname" placeholder="Product name">
+    <input id="pprice" placeholder="Price">
+    <input type="file" id="pimage" accept="image/*">
+    <button class="main" onclick="addProduct()">Add Product</button>
+    <hr>
+    <div id="adminList"></div>
+  </div>
+</section>
+
+<footer>© 2025 Musfira Store</footer>
+
+<!-- EMAILJS SDK -->
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<script>
+emailjs.init('user_YOUR_USER_ID'); // replace with your EmailJS user ID if required
+</script>
+
+<script>
+/* ================= ADMIN PASSWORD ================= */
+const ADMIN_PASSWORD = "musfira"; // CHANGE THIS
+
+/* ================= PAGE SWITCH ================= */
+function show(id){
+  document.querySelectorAll("section").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  if(id==="cart")renderCart();
+  if(id==="invoice")renderInvoice();
+}
+
+function adminLogin(){
+  const pass = prompt("Enter admin password:");
+  if(pass === ADMIN_PASSWORD){
+    show("admin");
+  } else {
+    alert("Wrong password");
+  }
+}
+
+/* ================= PRODUCTS ================= */
+let products = JSON.parse(localStorage.getItem("products")) || [
+  {name:"Website Design",price:500,image:""},
+  {name:"Logo Branding",price:300,image:""}
+];
+
+function saveProducts(){
+  localStorage.setItem("products",JSON.stringify(products));
+}
+
+function renderProducts(){
+  const box=document.getElementById("productList");
+  box.innerHTML="";
+  products.forEach(p=>{
+    box.innerHTML+=`
+      <div class="product">
+        ${p.image ? `<img src="${p.image}">` : ""}
+        <h3>${p.name}</h3>
+        <div class="price">GHS ${p.price}</div>
+        <button class="main" onclick="addToCart('${p.name}',${p.price})">
+          Add to Cart
+        </button>
+      </div>`;
+  });
+}
+renderProducts();
+
+/* ================= ADMIN FUNCTIONS ================= */
+function addProduct(){
+  const name=pname.value;
+  const price=Number(pprice.value);
+  const file=pimage.files[0];
+  if(!name || !price) return;
+
+  if(file){
+    const r=new FileReader();
+    r.onload=()=>{
+      products.push({name,price,image:r.result});
+      saveProducts(); renderProducts(); renderAdmin();
+    };
+    r.readAsDataURL(file);
+  }else{
+    products.push({name,price,image:""});
+    saveProducts(); renderProducts(); renderAdmin();
+  }
+
+  pname.value=""; pprice.value=""; pimage.value="";
+}
+
+function renderAdmin(){
+  adminList.innerHTML="";
+  products.forEach((p,i)=>{
+    adminList.innerHTML+=`
+      <div class="cart-item">
+        <b>${p.name}</b> – GHS ${p.price}<br><br>
+        <button class="small-btn" onclick="editProduct(${i})">✏️ Edit</button>
+        <button class="small-btn" style="color:red" onclick="deleteProduct(${i})">🗑 Delete</button>
+      </div>`;
+  });
+}
+renderAdmin();
+
+function deleteProduct(i){
+  if(confirm("Delete this product?")){
+    products.splice(i,1);
+    saveProducts(); renderProducts(); renderAdmin();
+  }
+}
+
+function editProduct(i){
+  const newName = prompt("Edit name:", products[i].name);
+  const newPrice = prompt("Edit price:", products[i].price);
+
+  if(newName) products[i].name=newName;
+  if(newPrice) products[i].price=Number(newPrice);
+
+  const changeImg = confirm("Change image?");
+  if(changeImg){
+    const input=document.createElement("input");
+    input.type="file";
+    input.accept="image/*";
+    input.onchange=()=>{
+      const r=new FileReader();
+      r.onload=()=>{
+        products[i].image=r.result;
+        saveProducts(); renderProducts(); renderAdmin();
+      };
+      r.readAsDataURL(input.files[0]);
+    };
+    input.click();
+  }else{
+    saveProducts(); renderProducts(); renderAdmin();
+  }
+}
+
+/* ================= CART ================= */
+function addToCart(name,price){
+  const cart=JSON.parse(localStorage.getItem("cart"))||[];
+  cart.push({name,price});
+  localStorage.setItem("cart",JSON.stringify(cart));
+  alert("Added to cart");
+}
+
+function renderCart(){
+  const cart=JSON.parse(localStorage.getItem("cart"))||[];
+  let total=0;
+  cartItems.innerHTML="";
+  cart.forEach(i=>{
+    total+=i.price;
+    cartItems.innerHTML+=`
+      <div class="cart-item">${i.name} – GHS ${i.price}</div>`;
+  });
+  cartTotal.innerText="Total: GHS "+total;
+}
+
+function clearCart(){
+  localStorage.removeItem("cart");
+  renderCart();
+}
+
+/* ================= INVOICE ================= */
+function renderInvoice(){
+  const cart=JSON.parse(localStorage.getItem("cart"))||[];
+  let total=0;
+  invoiceItems.innerHTML="";
+  cart.forEach(i=>{
+    total+=i.price;
+    invoiceItems.innerHTML+=`
+      <div class="invoice-item">${i.name} – GHS ${i.price}</div>`;
+  });
+  invoiceTotal.innerText="Total: GHS "+total;
+  date.innerText=new Date().toDateString();
+}
+
+/* ================= CHECKOUT ================= */
+function checkout(){
+  const cart=JSON.parse(localStorage.getItem("cart"))||[];
+  if(!cart.length) return alert("Cart empty");
+
+  let total=0,msg="Hello, I want to order:\n";
+  let itemsText="";
+  cart.forEach(i=>{
+    total+=i.price;
+    itemsText+=`${i.name} – GHS ${i.price}\n`;
+  });
+  msg+=itemsText+"Total: GHS "+total;
+
+  // WhatsApp Checkout
+  window.open("https://wa.me/233256359242?text="+encodeURIComponent(msg), "_blank");
+}
+</script>
+
+</body>
+</html>
